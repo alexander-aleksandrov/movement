@@ -106,11 +106,16 @@ public class Movement : MonoBehaviour
     private void UpdateState()
     {
         _stepsSinceLastGround += 1;
+
         _stepsSinceLastJump += 1;
         _velocity = _body.velocity;
-        if (OnGround || SnapToGround())
+        if (OnGround || SnapToGround() || CheckSteepContacts())
         {
             _stepsSinceLastGround = 0;
+            if (_stepsSinceLastJump > 1)
+            {
+                _jumpPhase = 0;
+            }
             _jumpPhase = 0;
             if (_groundContactsCount > 1)
             {
@@ -125,18 +130,37 @@ public class Movement : MonoBehaviour
 
     private void Jump()
     {
-        if (OnGround || _jumpPhase < _maxAirJumps)
+        Vector3 jumpDirection;
+        if (OnGround)
         {
-            _stepsSinceLastJump = 0;
-            _jumpPhase++;
-            float jumpSpeed = Mathf.Sqrt(-2f * Physics.gravity.y * _jumpHeight);
-            float allignedSpeed = Vector3.Dot(_velocity, _contactNormal);
-            if (allignedSpeed > 0f)
-            {
-                jumpSpeed = Mathf.Max(jumpSpeed - allignedSpeed, 0f);
-            }
-            _velocity += _contactNormal * jumpSpeed;
+            jumpDirection = _contactNormal;
         }
+        else if (OnSteep)
+        {
+            jumpDirection = _steepNormal;
+            _jumpPhase = 0;
+        }
+        else if (_maxAirJumps > 0 && _jumpPhase <= _maxAirJumps)
+        {
+            if (_jumpPhase == 0)
+            {
+                _jumpPhase = 1;
+            }
+            jumpDirection = _contactNormal;
+        }
+        else
+        { return; }
+        _stepsSinceLastJump = 0;
+        _jumpPhase++;
+        float jumpSpeed = Mathf.Sqrt(-2f * Physics.gravity.y * _jumpHeight);
+        jumpDirection = (jumpDirection + Vector3.up).normalized;
+        float allignedSpeed = Vector3.Dot(_velocity, jumpDirection);
+        if (allignedSpeed > 0f)
+        {
+            jumpSpeed = Mathf.Max(jumpSpeed - allignedSpeed, 0f);
+        }
+        _velocity += jumpDirection * jumpSpeed;
+
     }
     private float GetMinDot(int layer)
     {
